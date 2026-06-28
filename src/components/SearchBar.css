@@ -1,0 +1,109 @@
+.search-bar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(58, 44, 40, 0.4);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-smooth), visibility var(--transition-smooth);
+  backdrop-filter: blur(2px);
+}
+
+.search-bar-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.search-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: var(--background-color);
+  box-shadow: 0 4px 20px rgba(58, 44, 40, 0.1);
+  transform: translateY(-100%);
+  opacity: 0;
+  transition: transform var(--transition-smooth), opacity var(--transition-smooth);
+}
+
+.search-bar.open {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.search-bar__inner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-bar__icon {
+  flex-shrink: 0;
+  color: var(--secondary-color);
+}
+
+.search-bar__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.search-bar__input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  color: var(--text-dark);
+  padding: 0.5rem 0;
+}
+
+.search-bar__input::placeholder {
+  color: rgba(58, 44, 40, 0.35);
+  font-weight: 300;
+}
+
+.search-bar__close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dark);
+  border-radius: 50%;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.search-bar__close:hover {
+  background: rgba(190, 101, 75, 0.1);
+  color: var(--primary-color);
+}
+
+.search-bar__close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.search-bar__hint {
+  text-align: center;
+  padding: 0 2rem 1rem;
+  font-size: 0.8rem;
+  color: rgba(58, 44, 40, 0.4);
+}
+
+@media (max-width: 480px) {
+  .search-bar__inner {
+    padding: 1rem 1.25rem;
+  }
+  .search-bar__input {
+    font-size: 1rem;
+  }
+}
