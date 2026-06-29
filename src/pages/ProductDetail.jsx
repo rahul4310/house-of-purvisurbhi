@@ -19,14 +19,29 @@ const ProductDetail = () => {
   const [showCheckout, setShowCheckout] = useState(false);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchProduct = async () => {
       setLoading(true);
       setError(false);
       try {
         const res = await fetch(`${API_BASE}/api/products/${id}`);
-        if (!res.ok) throw new Error('Not found');
-        const data = await res.json();
-        setProduct(data);
+        if (res.ok) {
+          const data = await res.json();
+          // Parse additional images safely
+          if (typeof data.additional_images === 'string') {
+            try {
+              data.additional_images = JSON.parse(data.additional_images);
+            } catch (e) {
+              data.additional_images = [];
+            }
+          } else if (!data.additional_images) {
+            data.additional_images = [];
+          }
+          setProduct(data);
+          document.title = `${data.name} | House of PurviSurbhi`;
+        } else {
+          setError('Product not found.');
+        }
       } catch (err) {
         console.error('Failed to fetch product:', err);
         setError(true);
@@ -98,11 +113,23 @@ const ProductDetail = () => {
             {!isAvailable && (
               <span className="pd-sold-badge-large">Sold Out</span>
             )}
-            <img
-              className="pd-image"
-              src={imageUrl}
-              alt={product.name}
-            />
+            <div className="product-image-container">
+              <img className="pd-image" src={imageUrl || 'https://via.placeholder.com/600x800'} alt={product.name} />
+            </div>
+            
+            {product.additional_images && product.additional_images.length > 0 && (
+              <div className="product-gallery" style={{ display: 'flex', gap: '10px', marginTop: '10px', overflowX: 'auto' }}>
+                <img src={imageUrl || 'https://via.placeholder.com/600x800'} alt="Main" style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '2px solid var(--primary-light)' }} />
+                {product.additional_images.map((img, idx) => (
+                  <img key={idx} src={img} alt={`Gallery ${idx}`} style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', opacity: 0.8 }} onClick={(e) => {
+                    const mainImg = e.target.closest('.pd-image-section').querySelector('.product-image-container img');
+                    const oldSrc = mainImg.src;
+                    mainImg.src = img;
+                    e.target.src = oldSrc;
+                  }} />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Details */}

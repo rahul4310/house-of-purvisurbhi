@@ -202,15 +202,15 @@ const EditProductModal = ({ product, onClose, onSave }) => {
   const [price, setPrice] = useState(product.price);
   const [stock, setStock] = useState(product.stock || 0);
   const [description, setDescription] = useState(product.description || '');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setImageFiles(files);
+      setImagePreviews(files.map(f => URL.createObjectURL(f)));
     }
   };
 
@@ -223,7 +223,9 @@ const EditProductModal = ({ product, onClose, onSave }) => {
     formData.append('price', price);
     formData.append('stock', stock);
     formData.append('description', description);
-    if (imageFile) formData.append('image', imageFile);
+    if (imageFiles && imageFiles.length > 0) {
+      imageFiles.forEach(f => formData.append('images', f));
+    }
     await onSave(formData);
     setSaving(false);
   };
@@ -266,28 +268,33 @@ const EditProductModal = ({ product, onClose, onSave }) => {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3" />
           </div>
           <div className="admin-form-group">
-            <label>Change Image</label>
+            <label>Change Images</label>
             <div className="admin-image-upload">
-              <input type="file" accept="image/*" onChange={handleImageChange} />
+              <input type="file" accept="image/*" multiple onChange={handleImageChange} />
               <div className="admin-image-upload-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                 </svg>
               </div>
-              <p>Click to upload a new image</p>
+              <p>Click to upload new images</p>
             </div>
-            {imagePreview && (
-              <div className="admin-image-preview">
-                <img src={imagePreview} alt="Preview" />
+            {imagePreviews && imagePreviews.length > 0 && (
+              <div className="admin-image-preview-container" style={{ display: 'flex', gap: '10px', marginTop: '15px', overflowX: 'auto' }}>
+                {imagePreviews.map((preview, idx) => (
+                  <div key={idx} className="admin-image-preview" style={{ position: 'relative', width: '100px', height: '100px' }}>
+                    <img src={preview} alt={`Preview ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                  </div>
+                ))}
                 <button
                   type="button"
                   className="admin-image-preview-remove"
+                  style={{ position: 'static', margin: 'auto 10px' }}
                   onClick={() => {
-                    setImageFile(null);
-                    setImagePreview(null);
+                    setImageFiles([]);
+                    setImagePreviews([]);
                   }}
                 >
-                  ×
+                  Clear All
                 </button>
               </div>
             )}
@@ -427,6 +434,8 @@ const OrdersTab = ({ token }) => {
 // ─── Edit Order Modal ───────────────────────────────────────────
 const EditOrderModal = ({ order, onClose, onSave }) => {
   const [status, setStatus] = useState(order.status || 'new');
+  const [paymentStatus, setPaymentStatus] = useState(order.payment_status || 'pending');
+  const [paymentMode, setPaymentMode] = useState(order.payment_mode || '');
   const [paymentRef, setPaymentRef] = useState(order.payment_reference || '');
   const [tracking, setTracking] = useState(order.tracking_details || '');
   const [saving, setSaving] = useState(false);
@@ -436,6 +445,8 @@ const EditOrderModal = ({ order, onClose, onSave }) => {
     setSaving(true);
     await onSave(order.id, {
       status,
+      payment_status: paymentStatus,
+      payment_mode: paymentMode,
       payment_reference: paymentRef,
       tracking_details: tracking,
     });
@@ -461,6 +472,26 @@ const EditOrderModal = ({ order, onClose, onSave }) => {
               <option value="confirmed">Confirmed (Payment Received)</option>
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          
+          <div className="admin-form-group">
+            <label>Payment Status</label>
+            <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </div>
+
+          <div className="admin-form-group">
+            <label>Payment Mode</label>
+            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+              <option value="">Select mode...</option>
+              <option value="UPI">UPI</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cash">Cash / COD</option>
             </select>
           </div>
           
@@ -500,16 +531,16 @@ const AddProductTab = ({ token, onAdded }) => {
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState(1);
   const [description, setDescription] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setImageFiles(files);
+      setImagePreviews(files.map(f => URL.createObjectURL(f)));
     }
   };
 
@@ -519,8 +550,8 @@ const AddProductTab = ({ token, onAdded }) => {
     setPrice('');
     setStock(1);
     setDescription('');
-    setImageFile(null);
-    setImagePreview(null);
+    setImageFiles([]);
+    setImagePreviews([]);
   };
 
   const handleSubmit = async (e) => {
@@ -534,7 +565,9 @@ const AddProductTab = ({ token, onAdded }) => {
     formData.append('price', price);
     formData.append('stock', stock);
     formData.append('description', description);
-    if (imageFile) formData.append('image', imageFile);
+    if (imageFiles && imageFiles.length > 0) {
+      imageFiles.forEach(f => formData.append('images', f));
+    }
 
     try {
       const res = await fetch(`${API_BASE}/api/products`, {
@@ -630,29 +663,34 @@ const AddProductTab = ({ token, onAdded }) => {
         </div>
 
         <div className="admin-form-group">
-          <label>Product Image</label>
+          <label>Product Images (First image is main)</label>
           <div className="admin-image-upload">
-            <input type="file" accept="image/*" onChange={handleImageChange} />
+            <input type="file" accept="image/*" multiple onChange={handleImageChange} />
             <div className="admin-image-upload-icon">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             </div>
-            <p>Click to select an image</p>
-            <p className="upload-hint">JPG, PNG, or WebP · Max 5 MB</p>
+            <p>Click to select multiple images</p>
+            <p className="upload-hint">JPG, PNG, or WebP · Max 5 MB per file · Select up to 5 images</p>
           </div>
-          {imagePreview && (
-            <div className="admin-image-preview">
-              <img src={imagePreview} alt="Preview" />
+          {imagePreviews && imagePreviews.length > 0 && (
+            <div className="admin-image-preview-container" style={{ display: 'flex', gap: '10px', marginTop: '15px', overflowX: 'auto' }}>
+              {imagePreviews.map((preview, idx) => (
+                <div key={idx} className="admin-image-preview" style={{ position: 'relative', width: '100px', height: '100px' }}>
+                  <img src={preview} alt={`Preview ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                </div>
+              ))}
               <button
                 type="button"
                 className="admin-image-preview-remove"
+                style={{ position: 'static', margin: 'auto 10px' }}
                 onClick={() => {
-                  setImageFile(null);
-                  setImagePreview(null);
+                  setImageFiles([]);
+                  setImagePreviews([]);
                 }}
               >
-                ×
+                Clear All
               </button>
             </div>
           )}
@@ -677,6 +715,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
   const [token, setToken] = useState('');
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('adminToken');
@@ -685,6 +724,14 @@ const AdminDashboard = () => {
       return;
     }
     setToken(stored);
+
+    // Fetch summary
+    fetch(`${API_BASE}/api/summary`, {
+      headers: { Authorization: `Bearer ${stored}` }
+    })
+    .then(res => res.json())
+    .then(data => setSummary(data))
+    .catch(err => console.error('Failed to fetch summary:', err));
   }, [navigate]);
 
   const handleLogout = () => {
@@ -738,6 +785,26 @@ const AdminDashboard = () => {
 
       {/* Content */}
       <div className="admin-content">
+        {summary && (
+          <div className="admin-summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+            <div className="summary-card" style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem', textTransform: 'uppercase' }}>Total Products</h3>
+              <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{summary.totalProducts}</p>
+            </div>
+            <div className="summary-card" style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem', textTransform: 'uppercase' }}>Out of Stock</h3>
+              <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-color)' }}>{summary.outOfStock}</p>
+            </div>
+            <div className="summary-card" style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem', textTransform: 'uppercase' }}>New Orders</h3>
+              <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#f59e0b' }}>{summary.newOrders}</p>
+            </div>
+            <div className="summary-card" style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9rem', textTransform: 'uppercase' }}>Confirmed Orders</h3>
+              <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>{summary.confirmedOrders}</p>
+            </div>
+          </div>
+        )}
         {activeTab === 'products' && <ProductsTab token={token} />}
         {activeTab === 'orders' && <OrdersTab token={token} />}
         {activeTab === 'add' && (

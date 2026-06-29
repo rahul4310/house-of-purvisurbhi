@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import './Home.css';
@@ -10,6 +11,8 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchDebounce, setSearchDebounce] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const location = useLocation();
 
   // Fetch all products
   const fetchProducts = useCallback(async (search = '') => {
@@ -31,8 +34,17 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    const params = new URLSearchParams(location.search);
+    const query = params.get('search') || '';
+    if (query !== searchTerm) {
+      setSearchTerm(query);
+      fetchProducts(query);
+    } else if (products.length === 0) {
+      fetchProducts(query);
+    }
+    document.title = 'House of PurviSurbhi | Premium Sarees & Suits';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, fetchProducts]);
 
   // Debounced search
   const handleSearch = (e) => {
@@ -84,6 +96,25 @@ const Home = () => {
               </svg>
             </button>
           </div>
+          <div className="home-filters" style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'center' }}>
+            {['All', 'saree', 'suit'].map(filter => (
+              <button 
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--primary-light)',
+                  backgroundColor: activeFilter === filter ? 'var(--primary-light)' : 'transparent',
+                  color: activeFilter === filter ? '#fff' : 'var(--text-main)',
+                  cursor: 'pointer',
+                  textTransform: 'capitalize'
+                }}
+              >
+                {filter === 'All' ? 'All Collections' : filter + 's'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -99,7 +130,7 @@ const Home = () => {
       {!loading && (
         <>
           {/* Sarees Section */}
-          {sarees.length > 0 && (
+          {(activeFilter === 'All' || activeFilter === 'saree') && sarees.length > 0 && (
             <section id="sarees" className="home-product-section">
               <div className="container">
                 <div className="home-section-header">
@@ -121,12 +152,12 @@ const Home = () => {
             </section>
           )}
 
-          {sarees.length > 0 && suits.length > 0 && (
+          {(activeFilter === 'All' || activeFilter === 'saree') && sarees.length > 0 && suits.length > 0 && (
             <hr className="home-divider" />
           )}
 
           {/* Suits Section */}
-          {suits.length > 0 && (
+          {(activeFilter === 'All' || activeFilter === 'suit') && suits.length > 0 && (
             <section id="suits" className="home-product-section">
               <div className="container">
                 <div className="home-section-header">

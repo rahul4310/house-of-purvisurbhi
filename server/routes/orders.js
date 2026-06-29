@@ -3,12 +3,13 @@ import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
 
 const router = Router();
 
-const WEB3FORMS_ACCESS_KEY = '940ce14d-00e0-4964-8242-2ffb7f78ea1a';
+const WEB3FORMS_ACCESS_KEY = process.env.WEB3FORMS_ACCESS_KEY || '940ce14d-00e0-4964-8242-2ffb7f78ea1a';
 
 // --- Auth middleware ---
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== 'Bearer admin-token-purvisurbhi') {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
+  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   next();
@@ -98,9 +99,6 @@ router.post('/', async (req, res) => {
     ]
   );
   
-  if (product_id) {
-    runSql('UPDATE products SET stock = stock - 1 WHERE id = ?', [product_id]);
-  }
   saveDatabase();
 
   const newOrder = queryOne('SELECT * FROM orders WHERE id = ?', [result.lastId]);
@@ -118,7 +116,7 @@ router.patch('/:id/status', requireAuth, (req, res) => {
     return res.status(404).json({ success: false, message: 'Order not found.' });
   }
 
-  const { status, payment_reference, tracking_details } = req.body;
+  const { status, payment_status, payment_mode, payment_reference, tracking_details } = req.body;
   const validStatuses = ['new', 'confirmed', 'delivered', 'cancelled'];
 
   if (!status || !validStatuses.includes(status)) {
@@ -128,20 +126,27 @@ router.patch('/:id/status', requireAuth, (req, res) => {
     });
   }
 
-  // Handle stock adjustments if status changed to/from cancelled
+  // Handle stock adjustments based on status transitions
   if (existing.status !== status && existing.product_id) {
-    if (status === 'cancelled') {
-      runSql('UPDATE products SET stock = stock + 1 WHERE id = ?', [existing.product_id]);
-    } else if (existing.status === 'cancelled') {
-      // Transitioning from cancelled to active, deduct stock again
-      runSql('UPDATE products SET stock = stock - 1 WHERE id = ?', [existing.product_id]);
+    if (status === 'confirmed' && existing.status !== 'delivered') {
+      // Deduct stock when confirming (unless already deducted in delivered, which shouldn't happen but just in case)
+      if (existing.status === 'new' || existing.status === 'cancelled') {
+         runSql('UPDATE products SET stock = stock - 1 WHERE id = ?', [existing.product_id]);
+      }
+    } else if (status === 'cancelled') {
+      // Restore stock if it was confirmed or delivered
+      if (existing.status === 'confirmed' || existing.status === 'delivered') {
+         runSql('UPDATE products SET stock = stock + 1 WHERE id = ?', [existing.product_id]);
+      }
     }
   }
 
   runSql(
-    'UPDATE orders SET status = ?, payment_reference = ?, tracking_details = ? WHERE id = ?', 
+    'UPDATE orders SET status = ?, payment_status = ?, payment_mode = ?, payment_reference = ?, tracking_details = ? WHERE id = ?', 
     [
       status, 
+      payment_status !== undefined ? payment_status : existing.payment_status,
+      payment_mode !== undefined ? payment_mode : existing.payment_mode,
       payment_reference !== undefined ? payment_reference : existing.payment_reference,
       tracking_details !== undefined ? tracking_details : existing.tracking_details,
       Number(req.params.id)

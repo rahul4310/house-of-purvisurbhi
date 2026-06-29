@@ -34,13 +34,17 @@ export async function initDatabase() {
       price INTEGER NOT NULL,
       description TEXT,
       image_url TEXT,
+      additional_images TEXT DEFAULT '[]',
       stock INTEGER DEFAULT 1,
       available INTEGER DEFAULT 1,
+      active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   try { db.run('ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 1'); } catch (e) {}
+  try { db.run('ALTER TABLE products ADD COLUMN active INTEGER DEFAULT 1'); } catch (e) {}
+  try { db.run("ALTER TABLE products ADD COLUMN additional_images TEXT DEFAULT '[]'"); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -53,6 +57,8 @@ export async function initDatabase() {
       customer_phone TEXT NOT NULL,
       customer_address TEXT NOT NULL,
       status TEXT DEFAULT 'new',
+      payment_status TEXT DEFAULT 'pending',
+      payment_mode TEXT,
       payment_reference TEXT,
       tracking_details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -61,6 +67,8 @@ export async function initDatabase() {
 
   try { db.run('ALTER TABLE orders ADD COLUMN payment_reference TEXT'); } catch (e) {}
   try { db.run('ALTER TABLE orders ADD COLUMN tracking_details TEXT'); } catch (e) {}
+  try { db.run("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'pending'"); } catch (e) {}
+  try { db.run('ALTER TABLE orders ADD COLUMN payment_mode TEXT'); } catch (e) {}
 
   // Seed initial products if the table is empty
   const countResult = db.exec('SELECT COUNT(*) FROM products');

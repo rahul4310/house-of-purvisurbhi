@@ -9,6 +9,7 @@ const CheckoutModal = ({ isOpen, onClose, product }) => {
     address: ''
   });
   const [status, setStatus] = useState('');
+  const [orderId, setOrderId] = useState(null);
 
   if (!isOpen || !product) return null;
 
@@ -39,11 +40,8 @@ const CheckoutModal = ({ isOpen, onClose, product }) => {
       const result = await response.json();
       if (response.ok) {
         setStatus('success');
-        setFormData({ name: '', email: '', phone: '', address: '' });
-        setTimeout(() => {
-          setStatus('');
-          onClose();
-        }, 3000);
+        setOrderId(result.id);
+        // Do not auto-close, so user can see Order ID and click WhatsApp
       } else {
         setStatus('error');
       }
@@ -68,8 +66,23 @@ const CheckoutModal = ({ isOpen, onClose, product }) => {
             <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" fill="none" viewBox="0 0 24 24" stroke="var(--primary-color)" style={{margin: '0 auto 1rem', display: 'block'}}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h3>Order Placed Successfully!</h3>
-            <p>We have received your request and will contact you shortly.</p>
+            <h3>Order #{orderId} Placed Successfully!</h3>
+            <p>We have received your request and will contact you shortly to confirm payment and delivery.</p>
+            <a 
+              href={`https://wa.me/919999999999?text=${encodeURIComponent(`Hi, I placed Order #${orderId} for ${product.name}. My name is ${formData.name}.`)}`} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '20px', backgroundColor: '#25D366', borderColor: '#25D366' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.441-1.273.6-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824z"/>
+              </svg>
+              Send Order Details on WhatsApp
+            </a>
+            <div style={{ marginTop: '20px' }}>
+              <button onClick={onClose} className="btn" style={{ background: 'transparent', border: 'none', textDecoration: 'underline' }}>Close window</button>
+            </div>
           </div>
         ) : (
           <>

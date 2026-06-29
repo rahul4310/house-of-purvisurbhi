@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { initDatabase } from './database.js';
+import { initDatabase, queryOne } from './database.js';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
@@ -29,6 +30,23 @@ app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
+
+// GET /api/summary (auth required)
+app.get('/api/summary', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
+  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
+    return res.status(401).json({ success: false, message: 'Unauthorized.' });
+  }
+  
+  const totalProducts = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1')?.count || 0;
+  const outOfStock = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1 AND stock <= 0')?.count || 0;
+  const newOrders = queryOne('SELECT COUNT(*) as count FROM orders WHERE status = "new"')?.count || 0;
+  const confirmedOrders = queryOne('SELECT COUNT(*) as count FROM orders WHERE status = "confirmed"')?.count || 0;
+  
+  res.json({ totalProducts, outOfStock, newOrders, confirmedOrders });
+});
+
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 
@@ -63,4 +81,8 @@ async function start() {
   }
 }
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}
+
+export { app, start };

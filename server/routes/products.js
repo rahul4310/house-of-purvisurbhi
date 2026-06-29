@@ -13,7 +13,8 @@ const router = Router();
 // --- Auth middleware ---
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== 'Bearer admin-token-purvisurbhi') {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
+  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   next();
@@ -52,6 +53,11 @@ router.get('/', (req, res) => {
   let sql = 'SELECT * FROM products WHERE 1=1';
   const params = [];
 
+  // Hide inactive products unless admin requests all
+  if (req.query.all !== 'true') {
+    sql += ' AND active = 1';
+  }
+
   if (category) {
     sql += ' AND category = ?';
     params.push(category);
@@ -84,19 +90,26 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/products — create new product (auth required)
-router.post('/', requireAuth, upload.single('image'), (req, res) => {
+router.post('/', requireAuth, upload.array('images', 5), (req, res) => {
   const { name, category, price, description, stock } = req.body;
 
   if (!name || !category || !price) {
     return res.status(400).json({ success: false, message: 'name, category, and price are required.' });
   }
 
-  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+  let image_url = null;
+  let additional_images = [];
+
+  if (req.files && req.files.length > 0) {
+    image_url = `/uploads/${req.files[0].filename}`;
+    additional_images = req.files.slice(1).map(f => `/uploads/${f.filename}`);
+  }
+
   const initialStock = stock !== undefined ? Number(stock) : 1;
 
   const result = runSql(
-    'INSERT INTO products (name, category, price, stock, description, image_url) VALUES (?, ?, ?, ?, ?, ?)',
-    [name, category, Number(price), initialStock, description || null, image_url]
+    'INSERT INTO products (name, category, price, stock, description, image_url, additional_images) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [name, category, Number(price), initialStock, description || null, image_url, JSON.stringify(additional_images)]
   );
   saveDatabase();
 
@@ -105,17 +118,25 @@ router.post('/', requireAuth, upload.single('image'), (req, res) => {
 });
 
 // PUT /api/products/:id — update product (auth required)
-router.put('/:id', requireAuth, upload.single('image'), (req, res) => {
+router.put('/:id', requireAuth, upload.array('images', 5), (req, res) => {
   const existing = queryOne('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
   if (!existing) {
     return res.status(404).json({ success: false, message: 'Product not found.' });
   }
 
   const { name, category, price, description, stock } = req.body;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : existing.image_url;
+  
+  let image_url = existing.image_url;
+  let additional_images = existing.additional_images;
+
+  // If new files were uploaded, replace the old ones entirely
+  if (req.files && req.files.length > 0) {
+    image_url = `/uploads/${req.files[0].filename}`;
+    additional_images = JSON.stringify(req.files.slice(1).map(f => `/uploads/${f.filename}`));
+  }
 
   runSql(
-    'UPDATE products SET name = ?, category = ?, price = ?, stock = ?, description = ?, image_url = ? WHERE id = ?',
+    'UPDATE products SET name = ?, category = ?, price = ?, stock = ?, description = ?, image_url = ?, additional_images = ? WHERE id = ?',
     [
       name || existing.name,
       category || existing.category,
@@ -123,6 +144,7 @@ router.put('/:id', requireAuth, upload.single('image'), (req, res) => {
       stock !== undefined ? Number(stock) : existing.stock,
       description !== undefined ? description : existing.description,
       image_url,
+      additional_images,
       Number(req.params.id),
     ]
   );
@@ -139,7 +161,7 @@ router.delete('/:id', requireAuth, (req, res) => {
     return res.status(404).json({ success: false, message: 'Product not found.' });
   }
 
-  runSql('DELETE FROM products WHERE id = ?', [Number(req.params.id)]);
+  runSql('UPDATE products SET active = 0 WHERE id = ?', [Number(req.params.id)]);
   saveDatabase();
   return res.json({ success: true, message: 'Product deleted.' });
 });
