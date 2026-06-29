@@ -115,7 +115,8 @@ const ProductDetail = () => {
   const whatsappText = encodeURIComponent(
     `Hi! I'm interested in ${product.name} (₹${formatPrice(product.price)})`
   );
-  const whatsappUrl = `https://wa.me/918602237795?text=${whatsappText}`;
+  const WA_NUM = import.meta.env.VITE_WHATSAPP_NUMBER || '919876543210';
+  const whatsappUrl = `https://wa.me/${WA_NUM}?text=${whatsappText}`;
 
   // Build product object compatible with CheckoutModal
   const checkoutProduct = {

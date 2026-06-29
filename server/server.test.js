@@ -4,6 +4,19 @@ import { app } from './server.js';
 import { initDatabase } from './database.js';
 
 beforeAll(async () => {
+  // Clear the test database if it exists
+  const fs = await import('fs');
+  const path = await import('path');
+  const { fileURLToPath } = await import('url');
+  
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const testDbPath = path.join(__dirname, 'test-database.sqlite');
+  
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+
   // Initialize the database for tests
   await initDatabase();
 });
