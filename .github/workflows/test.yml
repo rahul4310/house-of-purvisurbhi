@@ -14,7 +14,7 @@ jobs:
       ADMIN_PASSWORD: test-password
       ADMIN_TOKEN: test-token
       WEB3FORMS_ACCESS_KEY: test-web3forms-key
-      VITE_WHATSAPP_NUMBER: 919876543210
+      VITE_WHATSAPP_NUMBER: 910000000000
 
     steps:
     - uses: actions/checkout@v3
