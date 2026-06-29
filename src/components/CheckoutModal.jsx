@@ -69,7 +69,7 @@ const CheckoutModal = ({ isOpen, onClose, product }) => {
             <h3>Order #{orderId} Placed Successfully!</h3>
             <p>We have received your request and will contact you shortly to confirm payment and delivery.</p>
             <a 
-              href={`https://wa.me/919999999999?text=${encodeURIComponent(`Hi, I placed Order #${orderId} for ${product.name}. My name is ${formData.name}.`)}`} 
+              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || '919876543210'}?text=${encodeURIComponent(`Hi, I placed Order #${orderId} for ${product.name}. My name is ${formData.name}.`)}`} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn btn-primary"

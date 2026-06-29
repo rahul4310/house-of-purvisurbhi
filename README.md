@@ -24,8 +24,8 @@ A full-stack e-commerce website for "House of PurviSurbhi", offering premium sar
 2. **Environment Variables**
    Create a `.env` file in the root directory:
    ```env
-   ADMIN_PASSWORD=admin123
-   ADMIN_TOKEN=admin-token-purvisurbhi
+   ADMIN_PASSWORD=your_secure_password_here
+   ADMIN_TOKEN=your_secure_token_here
    WEB3FORMS_ACCESS_KEY=your_key_here
    ```
 3. **Run Development Servers (Frontend + Backend)**

@@ -1,15 +1,13 @@
 import { Router } from 'express';
 import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
+import { config } from '../config.js';
 
 const router = Router();
-
-const WEB3FORMS_ACCESS_KEY = process.env.WEB3FORMS_ACCESS_KEY || '940ce14d-00e0-4964-8242-2ffb7f78ea1a';
 
 // --- Auth middleware ---
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
-  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
+  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   next();
@@ -22,7 +20,7 @@ async function sendOrderEmail(order) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        access_key: WEB3FORMS_ACCESS_KEY,
+        access_key: config.web3formsAccessKey,
         subject: `New Order #${order.id} — ${order.product_name}`,
         from_name: 'House of PurviSurbhi',
         message: `
@@ -127,17 +125,23 @@ router.patch('/:id/status', requireAuth, (req, res) => {
   }
 
   // Handle stock adjustments based on status transitions
-  if (existing.status !== status && existing.product_id) {
-    if (status === 'confirmed' && existing.status !== 'delivered') {
-      // Deduct stock when confirming (unless already deducted in delivered, which shouldn't happen but just in case)
-      if (existing.status === 'new' || existing.status === 'cancelled') {
-         runSql('UPDATE products SET stock = stock - 1 WHERE id = ?', [existing.product_id]);
+  if (existing.product_id) {
+    const stockDeductedStatuses = ['confirmed', 'delivered'];
+    const wasDeducted = stockDeductedStatuses.includes(existing.status);
+    const willBeDeducted = stockDeductedStatuses.includes(status);
+
+    if (!wasDeducted && willBeDeducted) {
+      // check stock > 0, then decrement
+      const product = queryOne('SELECT stock FROM products WHERE id = ?', [existing.product_id]);
+      if (!product || product.stock <= 0) {
+        return res.status(400).json({ success: false, message: 'Insufficient stock.' });
       }
-    } else if (status === 'cancelled') {
-      // Restore stock if it was confirmed or delivered
-      if (existing.status === 'confirmed' || existing.status === 'delivered') {
-         runSql('UPDATE products SET stock = stock + 1 WHERE id = ?', [existing.product_id]);
-      }
+      runSql('UPDATE products SET stock = stock - 1 WHERE id = ?', [existing.product_id]);
+    }
+
+    if (wasDeducted && !willBeDeducted) {
+      // restore stock
+      runSql('UPDATE products SET stock = stock + 1 WHERE id = ?', [existing.product_id]);
     }
   }
 

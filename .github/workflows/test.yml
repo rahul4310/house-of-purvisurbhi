@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      ADMIN_PASSWORD: test-password
+      ADMIN_TOKEN: test-token
+      WEB3FORMS_ACCESS_KEY: test-web3forms-key
+      VITE_WHATSAPP_NUMBER: 919876543210
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Run Tests
+      run: npm run test

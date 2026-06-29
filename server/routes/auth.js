@@ -1,9 +1,7 @@
-import { Router } from 'express';
+import express from 'express';
+import { config } from '../config.js';
 
-const router = Router();
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'purvisurbhi2024';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
+const router = express.Router();
 
 // POST /api/auth/login
 router.post('/login', (req, res) => {
@@ -13,11 +11,11 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ success: false, message: 'Password is required.' });
   }
 
-  if (password !== ADMIN_PASSWORD) {
+  if (password !== config.adminPassword) {
     return res.status(401).json({ success: false, message: 'Invalid password.' });
   }
 
-  return res.json({ success: true, token: ADMIN_TOKEN });
+  return res.json({ success: true, token: config.adminToken });
 });
 
 export default router;

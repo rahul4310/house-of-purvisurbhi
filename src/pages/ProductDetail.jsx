@@ -17,6 +17,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [mainImage, setMainImage] = useState('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -38,7 +39,36 @@ const ProductDetail = () => {
             data.additional_images = [];
           }
           setProduct(data);
+          
+          const imgUrl = data.image_url?.startsWith('http') ? data.image_url : `${API_BASE}${data.image_url}`;
+          setMainImage(imgUrl);
+          
           document.title = `${data.name} | House of PurviSurbhi`;
+
+          // SEO Open Graph Tags
+          let ogTitle = document.querySelector('meta[property="og:title"]');
+          if (!ogTitle) {
+            ogTitle = document.createElement('meta');
+            ogTitle.setAttribute('property', 'og:title');
+            document.head.appendChild(ogTitle);
+          }
+          ogTitle.setAttribute('content', `${data.name} | House of PurviSurbhi`);
+
+          let ogImage = document.querySelector('meta[property="og:image"]');
+          if (!ogImage) {
+            ogImage = document.createElement('meta');
+            ogImage.setAttribute('property', 'og:image');
+            document.head.appendChild(ogImage);
+          }
+          ogImage.setAttribute('content', imgUrl);
+          
+          let ogDesc = document.querySelector('meta[property="og:description"]');
+          if (!ogDesc) {
+            ogDesc = document.createElement('meta');
+            ogDesc.setAttribute('property', 'og:description');
+            document.head.appendChild(ogDesc);
+          }
+          ogDesc.setAttribute('content', data.description || 'Premium sarees and ladies suits.');
         } else {
           setError('Product not found.');
         }
@@ -114,19 +144,25 @@ const ProductDetail = () => {
               <span className="pd-sold-badge-large">Sold Out</span>
             )}
             <div className="product-image-container">
-              <img className="pd-image" src={imageUrl || 'https://via.placeholder.com/600x800'} alt={product.name} />
+              <img className="pd-image" src={mainImage || 'https://via.placeholder.com/600x800'} alt={product.name} />
             </div>
             
             {product.additional_images && product.additional_images.length > 0 && (
               <div className="product-gallery" style={{ display: 'flex', gap: '10px', marginTop: '10px', overflowX: 'auto' }}>
-                <img src={imageUrl || 'https://via.placeholder.com/600x800'} alt="Main" style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '2px solid var(--primary-light)' }} />
+                <img 
+                  src={imageUrl || 'https://via.placeholder.com/600x800'} 
+                  alt="Main" 
+                  style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: mainImage === imageUrl ? '2px solid var(--primary-light)' : '2px solid transparent', opacity: mainImage === imageUrl ? 1 : 0.7 }} 
+                  onClick={() => setMainImage(imageUrl)} 
+                />
                 {product.additional_images.map((img, idx) => (
-                  <img key={idx} src={img} alt={`Gallery ${idx}`} style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', opacity: 0.8 }} onClick={(e) => {
-                    const mainImg = e.target.closest('.pd-image-section').querySelector('.product-image-container img');
-                    const oldSrc = mainImg.src;
-                    mainImg.src = img;
-                    e.target.src = oldSrc;
-                  }} />
+                  <img 
+                    key={idx} 
+                    src={img} 
+                    alt={`Gallery ${idx}`} 
+                    style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: mainImage === img ? '2px solid var(--primary-light)' : '2px solid transparent', opacity: mainImage === img ? 1 : 0.7 }} 
+                    onClick={() => setMainImage(img)} 
+                  />
                 ))}
               </div>
             )}

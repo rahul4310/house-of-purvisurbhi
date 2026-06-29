@@ -8,6 +8,7 @@ import { initDatabase, queryOne } from './database.js';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
+import { config } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,8 +35,7 @@ app.use('/api/auth', authRoutes);
 // GET /api/summary (auth required)
 app.get('/api/summary', (req, res) => {
   const authHeader = req.headers.authorization;
-  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
-  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
+  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   
