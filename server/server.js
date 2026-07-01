@@ -5,7 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { initDatabase, queryOne } from './database.js';
-import authRoutes from './routes/auth.js';
+import cookieParser from 'cookie-parser';
+import authRoutes, { requireAuth } from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import { config } from './config.js';
@@ -17,8 +18,27 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- Middleware ---
-app.use(cors());
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:3001'];
+if (config.allowedOrigin) {
+  allowedOrigins.push(config.allowedOrigin);
+} else if (process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: ALLOWED_ORIGIN is not set in production. CORS may reject frontend requests.');
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true // Required for cookies
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser(config.sessionSecret));
 
 // Serve static frontend files (Vite build output)
 app.use(express.static(path.join(__dirname, '..', 'dist')));
@@ -33,12 +53,7 @@ app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')
 app.use('/api/auth', authRoutes);
 
 // GET /api/summary (auth required)
-app.get('/api/summary', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
-    return res.status(401).json({ success: false, message: 'Unauthorized.' });
-  }
-  
+app.get('/api/summary', requireAuth, (req, res) => {
   const totalProducts = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1')?.count || 0;
   const outOfStock = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1 AND stock <= 0')?.count || 0;
   const newOrders = queryOne('SELECT COUNT(*) as count FROM orders WHERE status = "new"')?.count || 0;
