@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node server/setup-env.js",
     "dev": "concurrently \"vite\" \"node server/server.js\"",
     "dev:frontend": "vite",
     "dev:backend": "node server/server.js",
