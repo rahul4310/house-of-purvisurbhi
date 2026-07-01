@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, 'database.sqlite');
+const DB_FILENAME = process.env.NODE_ENV === 'test' ? 'test-database.sqlite' : 'database.sqlite';
+const DB_PATH = path.join(__dirname, DB_FILENAME);
 
 let db;
 

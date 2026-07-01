@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
+import { config } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,8 +14,7 @@ const router = Router();
 // --- Auth middleware ---
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  const adminToken = process.env.ADMIN_TOKEN || 'admin-token-purvisurbhi';
-  if (!authHeader || authHeader !== `Bearer ${adminToken}`) {
+  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   next();
@@ -82,7 +82,7 @@ router.get('/', (req, res) => {
 
 // GET /api/products/:id — single product
 router.get('/:id', (req, res) => {
-  const product = queryOne('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
+  const product = queryOne('SELECT * FROM products WHERE id = ? AND active = 1', [Number(req.params.id)]);
   if (!product) {
     return res.status(404).json({ success: false, message: 'Product not found.' });
   }
