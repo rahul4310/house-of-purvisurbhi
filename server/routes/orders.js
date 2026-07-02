@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
-import { config } from '../config.js';
 
 const router = Router();
 

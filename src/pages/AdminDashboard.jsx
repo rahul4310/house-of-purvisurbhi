@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminDashboard.css';
 
-const API_BASE = '';
+const API_BASE = import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '';
 
 const formatPrice = (price) => {
   if (price == null) return 'N/A';

@@ -26,7 +26,12 @@ A full-stack e-commerce website for "House of PurviSurbhi", offering premium sar
    ```env
    ADMIN_PASSWORD=your_secure_password_here
    ADMIN_TOKEN=your_secure_token_here
-   WEB3FORMS_ACCESS_KEY=your_key_here
+   SESSION_SECRET=your_secure_session_secret_here
+   RESEND_API_KEY=your_resend_api_key_here
+   EMAIL_FROM="House of PurviSurbhi <onboarding@resend.dev>"
+   ORDER_NOTIFICATION_TO=owner@example.com
+   ORDER_NOTIFICATION_REPLY_TO=
+   EMAIL_ENABLED=true
    ```
 3. **Run Development Servers (Frontend + Backend)**
    ```bash
