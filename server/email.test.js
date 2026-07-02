@@ -7,11 +7,11 @@ import { Resend } from 'resend';
 vi.mock('resend', () => {
   const sendMock = vi.fn();
   return {
-    Resend: vi.fn().mockImplementation(() => ({
-      emails: {
-        send: sendMock
+    Resend: class {
+      constructor() {
+        this.emails = { send: sendMock };
       }
-    }))
+    }
   };
 });
 
