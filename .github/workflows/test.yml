@@ -13,16 +13,17 @@ jobs:
       NODE_ENV: test
       ADMIN_PASSWORD: test-password
       ADMIN_TOKEN: test-token
+      SESSION_SECRET: test-session-secret
       WEB3FORMS_ACCESS_KEY: test-web3forms-key
       VITE_WHATSAPP_NUMBER: 910000000000
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Use Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 22
         cache: 'npm'
 
     - name: Install Dependencies
@@ -30,3 +31,6 @@ jobs:
 
     - name: Run Tests
       run: npm run test
+
+    - name: Build
+      run: npm run build
