@@ -19,5 +19,5 @@ export const config = {
   adminToken: requireEnv('ADMIN_TOKEN'),
   sessionSecret: requireEnv('SESSION_SECRET'),
   web3formsAccessKey: requireEnv('WEB3FORMS_ACCESS_KEY'),
-  allowedOrigin: process.env.ALLOWED_ORIGIN || null,
+  allowedOrigin: process.env.NODE_ENV === 'production' ? requireEnv('ALLOWED_ORIGIN') : (process.env.ALLOWED_ORIGIN || null),
 };

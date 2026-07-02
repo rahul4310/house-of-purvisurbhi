@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { initDatabase, queryOne } from './database.js';
-import cookieParser from 'cookie-parser';
+import session from 'express-session';
 import authRoutes, { requireAuth } from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
@@ -15,14 +15,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 // --- Middleware ---
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:3001'];
+const isProd = process.env.NODE_ENV === 'production';
+const allowedOrigins = isProd ? [] : ['http://localhost:5173', 'http://localhost:3001'];
 if (config.allowedOrigin) {
   allowedOrigins.push(config.allowedOrigin);
-} else if (process.env.NODE_ENV === 'production') {
-  console.warn('WARNING: ALLOWED_ORIGIN is not set in production. CORS may reject frontend requests.');
 }
 
 const corsOptions = {
@@ -38,7 +38,22 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(cookieParser(config.sessionSecret));
+
+// Note: For this small single-instance Render app, in-memory sessions are acceptable 
+// for Stage 1. Limitation: Server restart logs admin out. Multi-instance deployments 
+// will need an external session store (e.g., Redis or SQLite session store) later.
+app.use(session({
+  name: 'sessionId',
+  secret: config.sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
+}));
 
 // Serve static frontend files (Vite build output)
 app.use(express.static(path.join(__dirname, '..', 'dist')));

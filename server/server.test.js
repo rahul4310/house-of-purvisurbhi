@@ -57,8 +57,17 @@ describe('API Endpoints', () => {
     
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
-    expect(cookies[0]).toMatch(/adminToken=.*?HttpOnly/);
+    expect(cookies[0]).toMatch(/sessionId=.*?HttpOnly/);
     authCookie = cookies[0].split(';')[0];
+  });
+
+  it('Old Authorization: Bearer token access should be rejected with 401', async () => {
+    const { config } = await import('./config.js');
+    const res = await request(app)
+      .get('/api/orders')
+      .set('Authorization', `Bearer ${config.adminToken}`);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized.');
   });
 
   it('GET /api/orders without auth should fail', async () => {
@@ -122,7 +131,7 @@ describe('API Endpoints', () => {
     
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
-    expect(cookies[0]).toContain('adminToken=;');
+    expect(cookies[0]).toContain('sessionId=;');
   });
 
   it('POST /api/auth/login should trigger rate limit (429)', async () => {

@@ -13,8 +13,7 @@ export const loginLimiter = rateLimit({
 });
 
 export function requireAuth(req, res, next) {
-  const token = req.signedCookies.adminToken;
-  if (!token || token !== config.adminToken) {
+  if (!req.session || !req.session.authenticated) {
     return res.status(401).json({ success: false, message: 'Unauthorized.' });
   }
   next();
@@ -32,29 +31,26 @@ router.post('/login', loginLimiter, (req, res) => {
     return res.status(401).json({ success: false, message: 'Invalid password.' });
   }
 
-  // Set secure cookie
-  const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('adminToken', config.adminToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    signed: true,
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
-  });
-
+  // Set session
+  req.session.authenticated = true;
   return res.json({ success: true });
 });
 
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('adminToken');
-  return res.json({ success: true });
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ success: false, message: 'Failed to logout' });
+    }
+    res.clearCookie('sessionId');
+    return res.json({ success: true });
+  });
 });
 
 // GET /api/auth/status
 router.get('/status', (req, res) => {
-  const token = req.signedCookies.adminToken;
-  if (token && token === config.adminToken) {
+  if (req.session && req.session.authenticated) {
     return res.json({ success: true, authenticated: true });
   }
   return res.json({ success: true, authenticated: false });
