@@ -5,7 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { initDatabase, queryOne } from './database.js';
-import authRoutes from './routes/auth.js';
+import session from 'express-session';
+import authRoutes, { requireAuth } from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import { config } from './config.js';
@@ -14,11 +15,45 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 // --- Middleware ---
-app.use(cors());
+const isProd = process.env.NODE_ENV === 'production';
+const allowedOrigins = isProd ? [] : ['http://localhost:5173', 'http://localhost:3001'];
+if (config.allowedOrigin) {
+  allowedOrigins.push(config.allowedOrigin);
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true // Required for cookies
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Note: For this small single-instance Render app, in-memory sessions are acceptable 
+// for Stage 1. Limitation: Server restart logs admin out. Multi-instance deployments 
+// will need an external session store (e.g., Redis or SQLite session store) later.
+app.use(session({
+  name: 'sessionId',
+  secret: config.sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
+}));
 
 // Serve static frontend files (Vite build output)
 app.use(express.static(path.join(__dirname, '..', 'dist')));
@@ -33,12 +68,7 @@ app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')
 app.use('/api/auth', authRoutes);
 
 // GET /api/summary (auth required)
-app.get('/api/summary', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
-    return res.status(401).json({ success: false, message: 'Unauthorized.' });
-  }
-  
+app.get('/api/summary', requireAuth, (req, res) => {
   const totalProducts = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1')?.count || 0;
   const outOfStock = queryOne('SELECT COUNT(*) as count FROM products WHERE active = 1 AND stock <= 0')?.count || 0;
   const newOrders = queryOne('SELECT COUNT(*) as count FROM orders WHERE status = "new"')?.count || 0;

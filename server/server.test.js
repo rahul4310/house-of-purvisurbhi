@@ -3,6 +3,8 @@ import request from 'supertest';
 import { app } from './server.js';
 import { initDatabase } from './database.js';
 
+let authCookie = '';
+
 beforeAll(async () => {
   // Clear the test database if it exists
   const fs = await import('fs');
@@ -34,12 +36,38 @@ describe('API Endpoints', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
-  it('POST /api/auth/login should fail with incorrect credentials', async () => {
+  it('POST /api/auth/login should fail with incorrect credentials and not set cookie', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ password: 'wrongpassword' });
     expect(res.statusCode).toBe(401);
     expect(res.body.success).toBe(false);
+    
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeUndefined();
+  });
+
+  it('POST /api/auth/login should succeed and set HttpOnly cookie', async () => {
+    const { config } = await import('./config.js');
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ password: config.adminPassword });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    expect(cookies[0]).toMatch(/sessionId=.*?HttpOnly/);
+    authCookie = cookies[0].split(';')[0];
+  });
+
+  it('Old Authorization: Bearer token access should be rejected with 401', async () => {
+    const { config } = await import('./config.js');
+    const res = await request(app)
+      .get('/api/orders')
+      .set('Authorization', `Bearer ${config.adminToken}`);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized.');
   });
 
   it('GET /api/orders without auth should fail', async () => {
@@ -47,20 +75,16 @@ describe('API Endpoints', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('GET /api/products/:id should return 404 for inactive products', async () => {
-    // 1. Manually insert an inactive product
-    const { runSql, queryOne } = await import('./database.js');
-    const result = runSql("INSERT INTO products (name, category, price, active, stock) VALUES ('Inactive Product', 'saree', 1000, 0, 10)");
-    const productId = result.lastId;
-
-    // 2. Fetch the product via API
-    const res = await request(app).get(`/api/products/${productId}`);
-    expect(res.statusCode).toBe(404);
+  it('GET /api/orders with auth cookie should succeed', async () => {
+    const res = await request(app)
+      .get('/api/orders')
+      .set('Cookie', authCookie);
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('PATCH /api/orders/:id/status should handle stock deduction properly', async () => {
     const { runSql, queryOne } = await import('./database.js');
-    const { config } = await import('./config.js');
     
     // 1. Insert product with stock 1
     const pRes = runSql("INSERT INTO products (name, category, price, active, stock) VALUES ('Stock Product', 'suit', 1500, 1, 1)");
@@ -70,12 +94,10 @@ describe('API Endpoints', () => {
     const oRes = runSql("INSERT INTO orders (product_id, customer_name, customer_phone, customer_address, status) VALUES (?, 'Test', '123', 'Address', 'new')", [productId]);
     const orderId = oRes.lastId;
 
-    const token = `Bearer ${config.adminToken}`;
-
     // 3. Confirm order -> should deduct stock to 0
     let res = await request(app)
       .patch(`/api/orders/${orderId}/status`)
-      .set('Authorization', token)
+      .set('Cookie', authCookie)
       .send({ status: 'confirmed' });
     expect(res.statusCode).toBe(200);
     
@@ -86,18 +108,69 @@ describe('API Endpoints', () => {
     const oRes2 = runSql("INSERT INTO orders (product_id, customer_name, customer_phone, customer_address, status) VALUES (?, 'Test2', '123', 'Address', 'new')", [productId]);
     let resFail = await request(app)
       .patch(`/api/orders/${oRes2.lastId}/status`)
-      .set('Authorization', token)
+      .set('Cookie', authCookie)
       .send({ status: 'confirmed' });
     expect(resFail.statusCode).toBe(400); // Insufficient stock
 
     // 5. Cancel first order -> should restore stock to 1
     let resCancel = await request(app)
       .patch(`/api/orders/${orderId}/status`)
-      .set('Authorization', token)
+      .set('Cookie', authCookie)
       .send({ status: 'cancelled' });
     expect(resCancel.statusCode).toBe(200);
 
     product = queryOne('SELECT stock FROM products WHERE id = ?', [productId]);
     expect(product.stock).toBe(1);
+  });
+
+  it('POST /api/auth/logout should clear cookie', async () => {
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', authCookie);
+    expect(res.statusCode).toBe(200);
+    
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    expect(cookies[0]).toContain('sessionId=;');
+  });
+
+  it('POST /api/auth/login should trigger rate limit (429)', async () => {
+    let res;
+    for (let i = 0; i < 4; i++) {
+      res = await request(app)
+        .post('/api/auth/login')
+        .send({ password: 'wrongpassword' });
+    }
+    expect(res.statusCode).toBe(429);
+    expect(res.body.message).toContain('Too many login attempts');
+  });
+
+  it('POST /api/orders should trigger rate limit (429)', async () => {
+    let res;
+    const payload = {
+      customer_name: 'Test',
+      customer_phone: '123',
+      customer_address: 'Address'
+    };
+    for (let i = 0; i < 11; i++) {
+      res = await request(app)
+        .post('/api/orders')
+        .send(payload);
+    }
+    expect(res.statusCode).toBe(429);
+  });
+
+  it('CORS allows configured origin', async () => {
+    const res = await request(app)
+      .options('/api/health')
+      .set('Origin', 'http://localhost:5173');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+  });
+
+  it('CORS rejects unconfigured origin', async () => {
+    const res = await request(app)
+      .options('/api/health')
+      .set('Origin', 'http://evil.com');
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 });

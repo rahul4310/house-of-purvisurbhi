@@ -11,14 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const router = Router();
 
-// --- Auth middleware ---
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
-    return res.status(401).json({ success: false, message: 'Unauthorized.' });
-  }
-  next();
-}
+import { requireAuth } from './auth.js';
 
 // --- Multer setup ---
 const uploadsDir = path.join(__dirname, '..', 'uploads');

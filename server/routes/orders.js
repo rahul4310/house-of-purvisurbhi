@@ -4,14 +4,16 @@ import { config } from '../config.js';
 
 const router = Router();
 
-// --- Auth middleware ---
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${config.adminToken}`) {
-    return res.status(401).json({ success: false, message: 'Unauthorized.' });
-  }
-  next();
-}
+import rateLimit from 'express-rate-limit';
+import { requireAuth } from './auth.js';
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { success: false, message: 'Too many orders created from this IP, please try again after an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // --- Helper: send order email via Web3Forms ---
 async function sendOrderEmail(order) {
@@ -58,7 +60,7 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 // POST /api/orders — create a new order (public)
-router.post('/', async (req, res) => {
+router.post('/', orderLimiter, async (req, res) => {
   const {
     product_id,
     product_name,

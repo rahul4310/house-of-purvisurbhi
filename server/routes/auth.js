@@ -1,10 +1,26 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { config } from '../config.js';
 
 const router = express.Router();
 
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per `window`
+  message: { success: false, message: 'Too many login attempts, please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export function requireAuth(req, res, next) {
+  if (!req.session || !req.session.authenticated) {
+    return res.status(401).json({ success: false, message: 'Unauthorized.' });
+  }
+  next();
+}
+
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', loginLimiter, (req, res) => {
   const { password } = req.body;
 
   if (!password) {
@@ -15,7 +31,29 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ success: false, message: 'Invalid password.' });
   }
 
-  return res.json({ success: true, token: config.adminToken });
+  // Set session
+  req.session.authenticated = true;
+  return res.json({ success: true });
+});
+
+// POST /api/auth/logout
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ success: false, message: 'Failed to logout' });
+    }
+    res.clearCookie('sessionId');
+    return res.json({ success: true });
+  });
+});
+
+// GET /api/auth/status
+router.get('/status', (req, res) => {
+  if (req.session && req.session.authenticated) {
+    return res.json({ success: true, authenticated: true });
+  }
+  return res.json({ success: true, authenticated: false });
 });
 
 export default router;

@@ -29,7 +29,7 @@ const ProductsTab = ({ token }) => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/products`);
+      const res = await fetch(`${API_BASE}/api/products`, { credentials: 'include' });
       if (res.ok) setProducts(await res.json());
     } catch (err) {
       console.error('Failed to fetch products:', err);
@@ -48,7 +48,7 @@ const ProductsTab = ({ token }) => {
     try {
       await fetch(`${API_BASE}/api/products/${deleteTarget.id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
     } catch (err) {
@@ -62,7 +62,7 @@ const ProductsTab = ({ token }) => {
     try {
       const res = await fetch(`${API_BASE}/api/products/${editTarget.id}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         body: formData,
       });
       if (res.ok) {
@@ -317,7 +317,7 @@ const OrdersTab = ({ token }) => {
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/orders`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -341,8 +341,8 @@ const OrdersTab = ({ token }) => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(updates),
       });
       await fetchOrders(); // refresh orders
@@ -572,7 +572,7 @@ const AddProductTab = ({ token, onAdded }) => {
     try {
       const res = await fetch(`${API_BASE}/api/products`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         body: formData,
       });
       if (res.ok) {
@@ -717,29 +717,37 @@ const AdminDashboard = () => {
   const [token, setToken] = useState('');
   const [summary, setSummary] = useState(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('adminToken');
-    if (!stored) {
-      navigate('/admin');
-      return;
-    }
-    setToken(stored);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  useEffect(() => {
     // Fetch summary
     fetch(`${API_BASE}/api/summary`, {
-      headers: { Authorization: `Bearer ${stored}` }
+      credentials: 'include'
     })
-    .then(res => res.json())
-    .then(data => setSummary(data))
+    .then(res => {
+      if (res.status === 401) {
+        navigate('/admin');
+        throw new Error('Unauthorized');
+      }
+      return res.json();
+    })
+    .then(data => {
+      setSummary(data);
+      setIsAuthenticated(true);
+    })
     .catch(err => console.error('Failed to fetch summary:', err));
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch (e) {
+      console.error(e);
+    }
     navigate('/');
   };
 
-  if (!token) return null;
+  if (!isAuthenticated) return null;
 
   return (
     <div className="admin-dashboard">

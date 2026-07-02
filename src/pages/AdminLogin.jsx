@@ -20,12 +20,13 @@ const AdminLogin = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
+        credentials: 'include',
       });
 
       const data = await res.json();
 
-      if (data.success && data.token) {
-        localStorage.setItem('adminToken', data.token);
+      if (data.success) {
+        localStorage.removeItem('adminToken'); // Clean up old token if exists
         navigate('/admin/dashboard');
       } else {
         setError(data.message || 'Invalid password. Please try again.');
