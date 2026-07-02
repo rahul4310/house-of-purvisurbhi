@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import CheckoutModal from '../components/CheckoutModal';
 import './ProductDetail.css';
 
-const API_BASE = import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '';
+const API_BASE = '';
 
 const formatPrice = (price) => {
   const num = typeof price === 'string' ? parseFloat(price) : price;

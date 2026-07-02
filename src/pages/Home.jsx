@@ -4,7 +4,7 @@ import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import './Home.css';
 
-const API_BASE = import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '';
+const API_BASE = '';
 
 const Home = () => {
   const [products, setProducts] = useState([]);
