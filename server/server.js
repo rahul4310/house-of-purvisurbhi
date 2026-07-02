@@ -59,7 +59,9 @@ app.use(session({
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Serve uploaded images as static files at /uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+import { resolveStoragePaths, validateStoragePaths, ensureStorageDirectories, logStoragePaths } from './storagePaths.js';
+const { uploadsDir } = resolveStoragePaths();
+app.use('/uploads', express.static(uploadsDir));
 
 // Serve seed images as static files at /images
 app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')));
@@ -99,6 +101,11 @@ app.use((err, _req, res, _next) => {
 // --- Initialize database and start server ---
 async function start() {
   try {
+    validateStoragePaths();
+    const paths = resolveStoragePaths();
+    ensureStorageDirectories(paths);
+    logStoragePaths(paths);
+
     await initDatabase();
     console.log('Database initialized successfully.');
 

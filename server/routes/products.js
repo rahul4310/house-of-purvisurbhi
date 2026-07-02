@@ -13,8 +13,10 @@ const router = Router();
 
 import { requireAuth } from './auth.js';
 
+import { resolveStoragePaths } from '../storagePaths.js';
+const { uploadsDir } = resolveStoragePaths();
+
 // --- Multer setup ---
-const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
