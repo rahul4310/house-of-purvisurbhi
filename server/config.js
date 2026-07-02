@@ -18,6 +18,10 @@ export const config = {
   adminPassword: requireEnv('ADMIN_PASSWORD'),
   adminToken: requireEnv('ADMIN_TOKEN'),
   sessionSecret: requireEnv('SESSION_SECRET'),
-  web3formsAccessKey: requireEnv('WEB3FORMS_ACCESS_KEY'),
+  resendApiKey: requireEnv('RESEND_API_KEY'),
+  emailFrom: requireEnv('EMAIL_FROM'),
+  orderNotificationTo: requireEnv('ORDER_NOTIFICATION_TO'),
+  orderNotificationReplyTo: process.env.ORDER_NOTIFICATION_REPLY_TO || null,
+  emailEnabled: process.env.EMAIL_ENABLED || 'true',
   allowedOrigin: process.env.NODE_ENV === 'production' ? requireEnv('ALLOWED_ORIGIN') : (process.env.ALLOWED_ORIGIN || null),
 };

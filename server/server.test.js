@@ -1,7 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import request from 'supertest';
 import { app } from './server.js';
 import { initDatabase } from './database.js';
+
+vi.mock('./email.js', () => ({
+  sendOrderNotification: vi.fn().mockResolvedValue(undefined),
+}));
 
 let authCookie = '';
 
@@ -143,6 +147,21 @@ describe('API Endpoints', () => {
     }
     expect(res.statusCode).toBe(429);
     expect(res.body.message).toContain('Too many login attempts');
+  });
+
+  it('POST /api/orders should create an order and return 201', async () => {
+    const payload = {
+      product_name: 'Test Product',
+      product_price: 5000,
+      customer_name: 'Test Customer',
+      customer_email: 'test@example.com',
+      customer_phone: '9999999999',
+      customer_address: '1 Test Street',
+    };
+    const res = await request(app).post('/api/orders').send(payload);
+    expect(res.statusCode).toBe(201);
+    expect(res.body.customer_name).toBe('Test Customer');
+    expect(res.body.id).toBeDefined();
   });
 
   it('POST /api/orders should trigger rate limit (429)', async () => {

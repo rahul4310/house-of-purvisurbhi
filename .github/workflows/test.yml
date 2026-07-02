@@ -14,7 +14,11 @@ jobs:
       ADMIN_PASSWORD: test-password
       ADMIN_TOKEN: test-token
       SESSION_SECRET: test-session-secret
-      WEB3FORMS_ACCESS_KEY: test-web3forms-key
+      RESEND_API_KEY: test-resend-api-key
+      EMAIL_FROM: test@example.com
+      ORDER_NOTIFICATION_TO: admin@example.com
+      ORDER_NOTIFICATION_REPLY_TO:
+      EMAIL_ENABLED: true
       VITE_WHATSAPP_NUMBER: 910000000000
 
     steps:

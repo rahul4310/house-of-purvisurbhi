@@ -15,43 +15,7 @@ const orderLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// --- Helper: send order email via Web3Forms ---
-async function sendOrderEmail(order) {
-  try {
-    const response = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        access_key: config.web3formsAccessKey,
-        subject: `New Order #${order.id} — ${order.product_name}`,
-        from_name: 'House of PurviSurbhi',
-        message: `
-New order received!
-
-Order ID: ${order.id}
-Product: ${order.product_name}
-Price: ₹${order.product_price ? order.product_price.toLocaleString('en-IN') : 'N/A'}
-
-Customer Details:
-Name: ${order.customer_name}
-Email: ${order.customer_email || 'Not provided'}
-Phone: ${order.customer_phone}
-Address: ${order.customer_address}
-
-Placed at: ${order.created_at}
-        `.trim(),
-      }),
-    });
-    const data = await response.json();
-    if (!data.success) {
-      console.error('Web3Forms email failed:', data);
-    } else {
-      console.log(`Order email sent for order #${order.id}`);
-    }
-  } catch (err) {
-    console.error('Failed to send order email:', err.message);
-  }
-}
+import { sendOrderNotification } from '../email.js';
 
 // GET /api/orders — list all orders, newest first (auth required)
 router.get('/', requireAuth, (req, res) => {
@@ -104,7 +68,7 @@ router.post('/', orderLimiter, async (req, res) => {
   const newOrder = queryOne('SELECT * FROM orders WHERE id = ?', [result.lastId]);
 
   // Send email notification (fire-and-forget)
-  sendOrderEmail(newOrder);
+  void sendOrderNotification(newOrder);
 
   return res.status(201).json(newOrder);
 });
