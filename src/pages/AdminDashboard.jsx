@@ -205,9 +205,22 @@ const EditProductModal = ({ product, onClose, onSave }) => {
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length > 5) {
+      setUploadError('Maximum 5 images per product.');
+      e.target.value = '';
+      return;
+    }
+    const oversized = files.find(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+      setUploadError(`"${oversized.name}" exceeds the 5 MB limit.`);
+      e.target.value = '';
+      return;
+    }
+    setUploadError('');
     if (files.length > 0) {
       setImageFiles(files);
       setImagePreviews(files.map(f => URL.createObjectURL(f)));
@@ -270,14 +283,16 @@ const EditProductModal = ({ product, onClose, onSave }) => {
           <div className="admin-form-group">
             <label>Change Images</label>
             <div className="admin-image-upload">
-              <input type="file" accept="image/*" multiple onChange={handleImageChange} />
+              <input type="file" accept=".jpg,.jpeg,.png,.webp" multiple onChange={handleImageChange} />
               <div className="admin-image-upload-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                 </svg>
               </div>
               <p>Click to upload new images</p>
+              <p className="upload-hint">JPG, PNG, or WebP · Max 5 MB per file · Up to 5 images</p>
             </div>
+            {uploadError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '8px' }}>{uploadError}</p>}
             {imagePreviews && imagePreviews.length > 0 && (
               <div className="admin-image-preview-container" style={{ display: 'flex', gap: '10px', marginTop: '15px', overflowX: 'auto' }}>
                 {imagePreviews.map((preview, idx) => (
@@ -538,6 +553,18 @@ const AddProductTab = ({ token, onAdded }) => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length > 5) {
+      setMessage({ type: 'error', text: 'Maximum 5 images per product.' });
+      e.target.value = '';
+      return;
+    }
+    const oversized = files.find(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+      setMessage({ type: 'error', text: `"${oversized.name}" exceeds the 5 MB limit.` });
+      e.target.value = '';
+      return;
+    }
+    setMessage({ type: '', text: '' });
     if (files.length > 0) {
       setImageFiles(files);
       setImagePreviews(files.map(f => URL.createObjectURL(f)));
@@ -584,7 +611,7 @@ const AddProductTab = ({ token, onAdded }) => {
         const data = await res.json();
         setMessage({
           type: 'error',
-          text: data.error || 'Failed to add product.',
+          text: data.message || data.error || 'Failed to add product.',
         });
       }
     } catch (err) {
@@ -665,7 +692,7 @@ const AddProductTab = ({ token, onAdded }) => {
         <div className="admin-form-group">
           <label>Product Images (First image is main)</label>
           <div className="admin-image-upload">
-            <input type="file" accept="image/*" multiple onChange={handleImageChange} />
+            <input type="file" accept=".jpg,.jpeg,.png,.webp" multiple onChange={handleImageChange} />
             <div className="admin-image-upload-icon">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />

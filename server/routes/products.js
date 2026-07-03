@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
+import crypto from 'crypto';
 import path from 'path';
 import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
-import { config } from '../config.js';
 
 const router = Router();
 
@@ -11,27 +11,75 @@ import { requireAuth } from './auth.js';
 import { resolveStoragePaths } from '../storagePaths.js';
 const { uploadsDir } = resolveStoragePaths();
 
+import {
+  ALLOWED_EXTENSIONS,
+  ALLOWED_MIMES,
+  MAX_FILE_SIZE,
+  MAX_FILE_COUNT,
+  validateAndFinalizeUploads,
+  cleanupFiles,
+} from '../uploadValidator.js';
+
 // --- Multer setup ---
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, 'product-' + uniqueSuffix + ext);
+  filename: (_req, _file, cb) => {
+    // Write with .tmp extension; renamed to detected type after magic-byte validation
+    cb(null, `product-${crypto.randomUUID()}.tmp`);
   },
 });
 
-const upload = multer({
+const multerUpload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp/;
-    const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mimeOk = allowed.test(file.mimetype);
-    cb(null, extOk && mimeOk);
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return cb(new Error('Only JPG, PNG, and WebP images are allowed.'));
+    }
+    if (!ALLOWED_MIMES.includes(file.mimetype)) {
+      return cb(new Error('Only JPG, PNG, and WebP images are allowed.'));
+    }
+    cb(null, true);
   },
 });
+
+/**
+ * Upload middleware: runs Multer, then validates magic bytes and renames files.
+ * On any failure, cleans up ALL written files and returns a JSON error.
+ * Invalid uploads never reach the route handler — no product record is created/updated.
+ */
+function handleUpload(req, res, next) {
+  multerUpload.array('images', MAX_FILE_COUNT)(req, res, (err) => {
+    if (err) {
+      // Clean up any files already written before the error
+      if (req.files && req.files.length > 0) {
+        cleanupFiles(req.files);
+      }
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ success: false, message: 'File size exceeds the 5 MB limit.' });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ success: false, message: 'Maximum 5 images per product.' });
+      }
+      return res.status(400).json({ success: false, message: err.message || 'Invalid upload.' });
+    }
+
+    // No files uploaded — that's fine, proceed to route handler
+    if (!req.files || req.files.length === 0) {
+      return next();
+    }
+
+    // Validate magic bytes and rename from .tmp to detected extension
+    const result = validateAndFinalizeUploads(req.files, uploadsDir);
+    if (!result.valid) {
+      return res.status(400).json({ success: false, message: result.error });
+    }
+
+    next();
+  });
+}
 
 // GET /api/products — list all products with optional filters
 router.get('/', (req, res) => {
@@ -77,7 +125,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/products — create new product (auth required)
-router.post('/', requireAuth, upload.array('images', 5), (req, res) => {
+router.post('/', requireAuth, handleUpload, (req, res) => {
   const { name, category, price, description, stock } = req.body;
 
   if (!name || !category || !price) {
@@ -105,7 +153,7 @@ router.post('/', requireAuth, upload.array('images', 5), (req, res) => {
 });
 
 // PUT /api/products/:id — update product (auth required)
-router.put('/:id', requireAuth, upload.array('images', 5), (req, res) => {
+router.put('/:id', requireAuth, handleUpload, (req, res) => {
   const existing = queryOne('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
   if (!existing) {
     return res.status(404).json({ success: false, message: 'Product not found.' });

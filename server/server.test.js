@@ -127,6 +127,142 @@ describe('API Endpoints', () => {
     expect(product.stock).toBe(1);
   });
 
+  // ── Upload validation integration tests ────────────────────────────
+
+  it('POST /api/products with valid JPEG upload should succeed and store .jpg', async () => {
+    const fs = await import('fs');
+    const { resolveStoragePaths } = await import('./storagePaths.js');
+    const { uploadsDir } = resolveStoragePaths();
+
+    // Minimal buffer with JPEG magic bytes
+    const jpegBuffer = Buffer.from([
+      0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00,
+    ]);
+    const res = await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'Upload JPEG Test')
+      .field('category', 'saree')
+      .field('price', '1000')
+      .attach('images', jpegBuffer, 'test.jpg');
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.image_url).toMatch(/^\/uploads\/product-.*\.jpg$/);
+
+    // Cleanup: delete the test file
+    const filename = res.body.image_url.replace('/uploads/', '');
+    const filePath = (await import('path')).join(uploadsDir, filename);
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
+  });
+
+  it('POST /api/products with valid PNG upload should store .png', async () => {
+    const fs = await import('fs');
+    const { resolveStoragePaths } = await import('./storagePaths.js');
+    const { uploadsDir } = resolveStoragePaths();
+
+    const pngBuffer = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    ]);
+    const res = await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'Upload PNG Test')
+      .field('category', 'suit')
+      .field('price', '2000')
+      .attach('images', pngBuffer, 'photo.png');
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.image_url).toMatch(/^\/uploads\/product-.*\.png$/);
+
+    const filename = res.body.image_url.replace('/uploads/', '');
+    const filePath = (await import('path')).join(uploadsDir, filename);
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
+  });
+
+  it('POST /api/products with spoofed bytes (.jpg ext, wrong content) returns 400 and leaves no files', async () => {
+    const fs = await import('fs');
+    const { resolveStoragePaths } = await import('./storagePaths.js');
+    const { uploadsDir } = resolveStoragePaths();
+    const beforeFiles = new Set(fs.readdirSync(uploadsDir));
+
+    // Random bytes masquerading as .jpg
+    const fakeBuffer = Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+    const res = await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'Spoofed Upload Test')
+      .field('category', 'saree')
+      .field('price', '100')
+      .attach('images', fakeBuffer, 'fake.jpg');
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain('not a valid image');
+
+    // Verify no orphan files left behind
+    const afterFiles = new Set(fs.readdirSync(uploadsDir));
+    const newFiles = [...afterFiles].filter(f => !beforeFiles.has(f));
+    expect(newFiles).toEqual([]);
+  });
+
+  it('POST /api/products with GIF should return 400', async () => {
+    const gifBuffer = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    const res = await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'GIF Test')
+      .field('category', 'suit')
+      .field('price', '500')
+      .attach('images', gifBuffer, { filename: 'anim.gif', contentType: 'image/gif' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toContain('Only JPG, PNG, and WebP');
+  });
+
+  it('Mixed valid + invalid upload rejects all and leaves no files behind', async () => {
+    const fs = await import('fs');
+    const { resolveStoragePaths } = await import('./storagePaths.js');
+    const { uploadsDir } = resolveStoragePaths();
+    const beforeFiles = new Set(fs.readdirSync(uploadsDir));
+
+    const validJpeg = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
+    const invalidFile = Buffer.from([0x00, 0x01, 0x02, 0x03]);
+    const res = await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'Mixed Upload Test')
+      .field('category', 'saree')
+      .field('price', '200')
+      .attach('images', validJpeg, 'valid.jpg')
+      .attach('images', invalidFile, 'also-fake.jpg');
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+
+    // ALL files must be cleaned up — no orphans
+    const afterFiles = new Set(fs.readdirSync(uploadsDir));
+    const newFiles = [...afterFiles].filter(f => !beforeFiles.has(f));
+    expect(newFiles).toEqual([]);
+  });
+
+  it('Invalid upload does not create a product record', async () => {
+    const { queryAll } = await import('./database.js');
+    const before = queryAll("SELECT id FROM products WHERE name = 'Ghost Product'");
+    expect(before).toEqual([]);
+
+    const fakeBuffer = Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]);
+    await request(app)
+      .post('/api/products')
+      .set('Cookie', authCookie)
+      .field('name', 'Ghost Product')
+      .field('category', 'saree')
+      .field('price', '999')
+      .attach('images', fakeBuffer, 'ghost.jpg');
+
+    const after = queryAll("SELECT id FROM products WHERE name = 'Ghost Product'");
+    expect(after).toEqual([]);
+  });
+
   it('POST /api/auth/logout should clear cookie', async () => {
     const res = await request(app)
       .post('/api/auth/logout')
