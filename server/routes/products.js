@@ -1,23 +1,17 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { queryAll, queryOne, runSql, saveDatabase } from '../database.js';
 import { config } from '../config.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = Router();
 
 import { requireAuth } from './auth.js';
 
+import { resolveStoragePaths } from '../storagePaths.js';
+const { uploadsDir } = resolveStoragePaths();
+
 // --- Multer setup ---
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
