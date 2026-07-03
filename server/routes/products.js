@@ -17,9 +17,6 @@ import { resolveStoragePaths } from '../storagePaths.js';
 const { uploadsDir } = resolveStoragePaths();
 
 // --- Multer setup ---
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),

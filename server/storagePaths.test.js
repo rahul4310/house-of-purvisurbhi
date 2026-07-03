@@ -20,6 +20,12 @@ describe('Storage Paths', () => {
       expect(paths.uploadsDir).toBe(path.join(__dirname, 'uploads'));
     });
 
+    it('should resolve test DB path when NODE_ENV is test even if DATA_DIR is set', () => {
+      const paths = resolveStoragePaths({ NODE_ENV: 'test', DATA_DIR: '/var/data' });
+      expect(paths.databasePath).toBe(path.join(__dirname, 'test-database.sqlite'));
+      expect(paths.uploadsDir).toBe(path.join(__dirname, 'uploads'));
+    });
+
     it('should resolve paths relative to DATA_DIR when set', () => {
       const paths = resolveStoragePaths({ NODE_ENV: 'production', DATA_DIR: '/var/data' });
       expect(paths.databasePath).toBe(path.join('/var/data', 'database.sqlite'));

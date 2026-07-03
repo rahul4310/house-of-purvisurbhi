@@ -11,11 +11,14 @@ export function resolveStoragePaths(env = process.env) {
   let databasePath;
   let uploadsDir;
 
-  if (env.DATA_DIR) {
+  if (isTest) {
+    databasePath = path.join(__dirname, 'test-database.sqlite');
+    uploadsDir = path.join(__dirname, 'uploads');
+  } else if (env.DATA_DIR) {
     databasePath = path.join(env.DATA_DIR, 'database.sqlite');
     uploadsDir = path.join(env.DATA_DIR, 'uploads');
   } else {
-    databasePath = path.join(__dirname, isTest ? 'test-database.sqlite' : 'database.sqlite');
+    databasePath = path.join(__dirname, 'database.sqlite');
     uploadsDir = path.join(__dirname, 'uploads');
   }
 
@@ -49,6 +52,10 @@ export function validateStoragePaths(env = process.env) {
 }
 
 export function ensureStorageDirectories(paths) {
+  const dbDir = path.dirname(paths.databasePath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
   if (!fs.existsSync(paths.uploadsDir)) {
     fs.mkdirSync(paths.uploadsDir, { recursive: true });
   }
