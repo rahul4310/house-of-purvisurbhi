@@ -20,6 +20,26 @@ const formatDate = (dateStr) => {
   });
 };
 
+const validateSelectedImageFiles = (files) => {
+  if (files.length > 5) {
+    return 'Maximum 5 images per product.';
+  }
+
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+
+  for (const f of files) {
+    if (f.size > 5 * 1024 * 1024) {
+      return `"${f.name}" exceeds the 5 MB limit.`;
+    }
+    const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+    if (!allowedExtensions.includes(ext) || !allowedMimes.includes(f.type)) {
+      return `"${f.name}" is not an allowed image type. Use JPG, PNG, or WebP.`;
+    }
+  }
+  return null;
+};
+
 // ─── Products Tab ───────────────────────────────────────────────
 const ProductsTab = ({ token }) => {
   const [products, setProducts] = useState([]);
@@ -59,18 +79,17 @@ const ProductsTab = ({ token }) => {
   };
 
   const handleEditSave = async (formData) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/products/${editTarget.id}`, {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
-      });
-      if (res.ok) {
-        await fetchProducts();
-        setEditTarget(null);
-      }
-    } catch (err) {
-      console.error('Failed to update product:', err);
+    const res = await fetch(`${API_BASE}/api/products/${editTarget.id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+    });
+    if (res.ok) {
+      await fetchProducts();
+      setEditTarget(null);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || data.error || 'Failed to update product.');
     }
   };
 
@@ -209,14 +228,9 @@ const EditProductModal = ({ product, onClose, onSave }) => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 5) {
-      setUploadError('Maximum 5 images per product.');
-      e.target.value = '';
-      return;
-    }
-    const oversized = files.find(f => f.size > 5 * 1024 * 1024);
-    if (oversized) {
-      setUploadError(`"${oversized.name}" exceeds the 5 MB limit.`);
+    const errorMsg = validateSelectedImageFiles(files);
+    if (errorMsg) {
+      setUploadError(errorMsg);
       e.target.value = '';
       return;
     }
@@ -230,6 +244,7 @@ const EditProductModal = ({ product, onClose, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setUploadError('');
     const formData = new FormData();
     formData.append('name', name);
     formData.append('category', category);
@@ -239,8 +254,13 @@ const EditProductModal = ({ product, onClose, onSave }) => {
     if (imageFiles && imageFiles.length > 0) {
       imageFiles.forEach(f => formData.append('images', f));
     }
-    await onSave(formData);
-    setSaving(false);
+    try {
+      await onSave(formData);
+    } catch (err) {
+      setUploadError(err.message || 'Failed to update product.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -553,14 +573,9 @@ const AddProductTab = ({ token, onAdded }) => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 5) {
-      setMessage({ type: 'error', text: 'Maximum 5 images per product.' });
-      e.target.value = '';
-      return;
-    }
-    const oversized = files.find(f => f.size > 5 * 1024 * 1024);
-    if (oversized) {
-      setMessage({ type: 'error', text: `"${oversized.name}" exceeds the 5 MB limit.` });
+    const errorMsg = validateSelectedImageFiles(files);
+    if (errorMsg) {
+      setMessage({ type: 'error', text: errorMsg });
       e.target.value = '';
       return;
     }

@@ -38,6 +38,7 @@ const ProductDetail = () => {
           } else if (!data.additional_images) {
             data.additional_images = [];
           }
+          data.additional_images = data.additional_images.map(img => img?.startsWith('http') ? img : `${API_BASE}${img}`);
           setProduct(data);
           
           const imgUrl = data.image_url?.startsWith('http') ? data.image_url : `${API_BASE}${data.image_url}`;
