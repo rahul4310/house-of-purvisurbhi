@@ -24,7 +24,7 @@ const validateSelectedImageFiles = (files) => {
   if (files.length > 5) {
     return 'Maximum 5 images per product.';
   }
-  
+
   const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
   const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
 
